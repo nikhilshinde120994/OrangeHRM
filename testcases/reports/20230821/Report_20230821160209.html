@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Test Report</title>
+    <style>body {
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  /* do not increase min-width as some may use split screens */
+  min-width: 800px;
+  color: #999;
+}
+
+h1 {
+  font-size: 24px;
+  color: black;
+}
+
+h2 {
+  font-size: 16px;
+  color: black;
+}
+
+p {
+  color: black;
+}
+
+a {
+  color: #999;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+/******************************
+ * SUMMARY INFORMATION
+ ******************************/
+#environment td {
+  padding: 5px;
+  border: 1px solid #E6E6E6;
+}
+#environment tr:nth-child(odd) {
+  background-color: #f6f6f6;
+}
+
+/******************************
+ * TEST RESULT COLORS
+ ******************************/
+span.passed,
+.passed .col-result {
+  color: green;
+}
+
+span.skipped,
+span.xfailed,
+span.rerun,
+.skipped .col-result,
+.xfailed .col-result,
+.rerun .col-result {
+  color: orange;
+}
+
+span.error,
+span.failed,
+span.xpassed,
+.error .col-result,
+.failed .col-result,
+.xpassed .col-result {
+  color: red;
+}
+
+/******************************
+ * RESULTS TABLE
+ *
+ * 1. Table Layout
+ * 2. Extra
+ * 3. Sorting items
+ *
+ ******************************/
+/*------------------
+ * 1. Table Layout
+ *------------------*/
+#results-table {
+  border: 1px solid #e6e6e6;
+  color: #999;
+  font-size: 12px;
+  width: 100%;
+}
+#results-table th,
+#results-table td {
+  padding: 5px;
+  border: 1px solid #E6E6E6;
+  text-align: left;
+}
+#results-table th {
+  font-weight: bold;
+}
+
+/*------------------
+ * 2. Extra
+ *------------------*/
+.log {
+  background-color: #e6e6e6;
+  border: 1px solid #e6e6e6;
+  color: black;
+  display: block;
+  font-family: "Courier New", Courier, monospace;
+  height: 230px;
+  overflow-y: scroll;
+  padding: 5px;
+  white-space: pre-wrap;
+}
+.log:only-child {
+  height: inherit;
+}
+
+div.image {
+  border: 1px solid #e6e6e6;
+  float: right;
+  height: 240px;
+  margin-left: 5px;
+  overflow: hidden;
+  width: 320px;
+}
+div.image img {
+  width: 320px;
+}
+
+div.video {
+  border: 1px solid #e6e6e6;
+  float: right;
+  height: 240px;
+  margin-left: 5px;
+  overflow: hidden;
+  width: 320px;
+}
+div.video video {
+  overflow: hidden;
+  width: 320px;
+  height: 240px;
+}
+
+.collapsed {
+  display: none;
+}
+
+.expander::after {
+  content: " (show details)";
+  color: #BBB;
+  font-style: italic;
+  cursor: pointer;
+}
+
+.collapser::after {
+  content: " (hide details)";
+  color: #BBB;
+  font-style: italic;
+  cursor: pointer;
+}
+
+/*------------------
+ * 3. Sorting items
+ *------------------*/
+.sortable {
+  cursor: pointer;
+}
+
+.sort-icon {
+  font-size: 0px;
+  float: left;
+  margin-right: 5px;
+  margin-top: 5px;
+  /*triangle*/
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+}
+.inactive .sort-icon {
+  /*finish triangle*/
+  border-top: 8px solid #E6E6E6;
+}
+.asc.active .sort-icon {
+  /*finish triangle*/
+  border-bottom: 8px solid #999;
+}
+.desc.active .sort-icon {
+  /*finish triangle*/
+  border-top: 8px solid #999;
+}
+</style></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++)
+        filterItems[i].hidden = false;
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>OrangeHRM Test Result</h1>
+    <p>Report generated on 21-Aug-2023 at 16:02:24 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.1.1</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>JAVA_HOME</td>
+        <td>C:\Program Files\Java\jdk-11.0.16</td></tr>
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "1.0.0", "py": "1.11.0", "pytest": "7.1.2"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>Windows-10-10.0.22621-SP0</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{"html": "3.1.1", "metadata": "2.0.1", "xdist": "3.3.1"}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.10.4</td></tr></table>
+    <h2>Summary</h2>
+    <p>0 tests ran in 14.84 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">0 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">0 failed</span>, <input checked="true" class="filter" data-test-result="error" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">1 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="error results-table-row">
+        <tr>
+          <td class="col-result">Error</td>
+          <td class="col-name">test_login.py::Test_Login::test_validate_login::setup</td>
+          <td class="col-duration">9.36</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><div><img src="screenshot161621082023.png" alt="screenshot" style="width:304px;height:228px;" onclick="window.open(this.src)" align="right"/></div></div>
+            <div class="log">cls = &lt;class &#x27;_pytest.runner.CallInfo&#x27;&gt;<br/>func = &lt;function call_runtest_hook.&lt;locals&gt;.&lt;lambda&gt; at 0x000001B900A31240&gt;<br/>when = &#x27;setup&#x27;<br/>reraise = (&lt;class &#x27;_pytest.outcomes.Exit&#x27;&gt;, &lt;class &#x27;KeyboardInterrupt&#x27;&gt;)<br/><br/>    @classmethod<br/>    def from_call(<br/>        cls,<br/>        func: &quot;Callable[[], TResult]&quot;,<br/>        when: &quot;Literal[&#x27;collect&#x27;, &#x27;setup&#x27;, &#x27;call&#x27;, &#x27;teardown&#x27;]&quot;,<br/>        reraise: Optional[<br/>            Union[Type[BaseException], Tuple[Type[BaseException], ...]]<br/>        ] = None,<br/>    ) -&gt; &quot;CallInfo[TResult]&quot;:<br/>        &quot;&quot;&quot;Call func, wrapping the result in a CallInfo.<br/>    <br/>        :param func:<br/>            The function to call. Called without arguments.<br/>        :param when:<br/>            The phase in which the function is called.<br/>        :param reraise:<br/>            Exception or exceptions that shall propagate if raised by the<br/>            function, instead of being wrapped in the CallInfo.<br/>        &quot;&quot;&quot;<br/>        excinfo = None<br/>        start = timing.time()<br/>        precise_start = timing.perf_counter()<br/>        try:<br/>&gt;           result: Optional[TResult] = func()<br/><br/>C:\Program Files\Python310\lib\site-packages\_pytest\runner.py:338: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/>C:\Program Files\Python310\lib\site-packages\_pytest\runner.py:259: in &lt;lambda&gt;<br/>    lambda: ihook(item=item, **kwds), when=when, reraise=reraise<br/>C:\Users\Nikhil\AppData\Roaming\Python\Python310\site-packages\pluggy\_hooks.py:265: in __call__<br/>    return self._hookexec(self.name, self.get_hookimpls(), kwargs, firstresult)<br/>C:\Users\Nikhil\AppData\Roaming\Python\Python310\site-packages\pluggy\_manager.py:80: in _hookexec<br/>    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)<br/>C:\Program Files\Python310\lib\site-packages\_pytest\runner.py:154: in pytest_runtest_setup<br/>    item.session._setupstate.setup(item)<br/>C:\Program Files\Python310\lib\site-packages\_pytest\runner.py:494: in setup<br/>    raise exc<br/>C:\Program Files\Python310\lib\site-packages\_pytest\runner.py:491: in setup<br/>    col.setup()<br/>C:\Program Files\Python310\lib\site-packages\_pytest\python.py:1764: in setup<br/>    self._request._fillfixtures()<br/>C:\Program Files\Python310\lib\site-packages\_pytest\fixtures.py:541: in _fillfixtures<br/>    item.funcargs[argname] = self.getfixturevalue(argname)<br/>C:\Program Files\Python310\lib\site-packages\_pytest\fixtures.py:554: in getfixturevalue<br/>    fixturedef = self._get_active_fixturedef(argname)<br/>C:\Program Files\Python310\lib\site-packages\_pytest\fixtures.py:573: in _get_active_fixturedef<br/>    self._compute_fixture_value(fixturedef)<br/>C:\Program Files\Python310\lib\site-packages\_pytest\fixtures.py:659: in _compute_fixture_value<br/>    fixturedef.execute(request=subrequest)<br/>C:\Program Files\Python310\lib\site-packages\_pytest\fixtures.py:1057: in execute<br/>    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)<br/>C:\Users\Nikhil\AppData\Roaming\Python\Python310\site-packages\pluggy\_hooks.py:265: in __call__<br/>    return self._hookexec(self.name, self.get_hookimpls(), kwargs, firstresult)<br/>C:\Users\Nikhil\AppData\Roaming\Python\Python310\site-packages\pluggy\_manager.py:80: in _hookexec<br/>    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)<br/>C:\Program Files\Python310\lib\site-packages\_pytest\fixtures.py:1111: in pytest_fixture_setup<br/>    result = call_fixture_func(fixturefunc, request, kwargs)<br/>C:\Program Files\Python310\lib\site-packages\_pytest\fixtures.py:883: in call_fixture_func<br/>    fixture_result = next(generator)<br/>C:\Program Files\Python310\lib\site-packages\_pytest\python.py:854: in xunit_setup_class_fixture<br/>    _call_with_optional_argument(func, self.obj)<br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>func = &lt;function Test_Login.setup_class at 0x000001B9009B2830&gt;<br/>arg = &lt;class &#x27;testcases.test_login.Test_Login&#x27;&gt;<br/><br/>    def _call_with_optional_argument(func, arg) -&gt; None:<br/>        &quot;&quot;&quot;Call the given function with the given argument if func accepts one argument, otherwise<br/>        calls func without arguments.&quot;&quot;&quot;<br/>        arg_count = func.__code__.co_argcount<br/>        if inspect.ismethod(func):<br/>            arg_count -= 1<br/>        if arg_count:<br/>&gt;           func(arg)<br/><span class="error">E           TypeError: Test_Login.setup_class() missing 1 required positional argument: &#x27;driver&#x27;</span><br/><br/>C:\Program Files\Python310\lib\site-packages\_pytest\python.py:776: TypeError<br/> -----------------------------Captured stdout setup------------------------------ <br/>
+<br/> -----------------------------Captured stderr setup------------------------------ <br/>[WDM] - ====== WebDriver manager ======
+[WDM] - Driver [C:\Users\Nikhil\.wdm\drivers\chromedriver\win32\114.0.5735.90\chromedriver.exe] found in cache
+<br/> -------------------------------Captured log setup------------------------------- <br/>INFO     WDM:logger.py:16 ====== WebDriver manager ======
+INFO     WDM:logger.py:16 Driver [C:\Users\Nikhil\.wdm\drivers\chromedriver\win32\114.0.5735.90\chromedriver.exe] found in cache<br/></div></td></tr></tbody></table></body></html>
